@@ -253,6 +253,7 @@ def events(request):
         {
             "events": events1,
             "form": form,
+            "devices" : Device.objects.all(),
             "courses":courses,
             "curr_time": current_time,
             "curr_date": current_date,
@@ -279,6 +280,7 @@ def add_event(request):
         form = EventForm(request.POST)
         courses = Course.objects.all()
         selected_courses = request.POST.getlist("courses")
+        selected_device = request.POST.get("device")
         if form.is_valid():
             event = form.save(commit=False)
 
@@ -293,6 +295,8 @@ def add_event(request):
                 event.device = None
             event = Event.objects.create(name=event_name, instructor=instructor, stop_time=event_stop,start_time=event_stt)
             event.courses.set(Course.objects.filter(id__in=selected_courses))
+
+            event.device = Device.objects.get(id=int(selected_device))
 
             event.save()
             return redirect("attendance_app:events")
@@ -342,10 +346,13 @@ def add_device(request):
 
         if form.is_valid():
             device = form.save(commit=False)
+            print(device.ip_address)
+            print(device.name)
+            print(device.apiEndpointUrl)
 
             config_data = {
-                "ssid": device.ssid,
-                "password": device.password_to_ssid,
+                # "ssid": device.ssid,
+                # "password": device.password_to_ssid,
                 "device_name": device.name,
                 "apiEndpointUrl": device.apiEndpointUrl,
             }
@@ -353,32 +360,42 @@ def add_device(request):
             try:
                 headers = {"Content-Type": "application/json"}
                 response = requests.post(
-                    f"http://{device.ip_address}/config",
+                    f"http://{device.ip_address}:8080/config",
                     json=config_data,
                     headers=headers,
                     timeout=5,
                 )
+                print("Response code:",response.status_code)
+                if response.status_code == 200:
+                    device.status = True
+                    device.token = SecurityToken.objects.get(id=1)
+                    device.save()
+
+                    return redirect("attendance_app:devices")
 
             except requests.RequestException as e:
-                if "timeout=5)" in str(e).split():
-                    response = requests.post(
-                        f"http://{device.ip_address}/send_ip",
-                        json=config_data,
-                        headers=headers,
-                        timeout=5,
-                    )
+                # if "timeout=5)" in str(e).split():
+                #     response = requests.post(
+                #         f"http://{device.ip_address}/send_ip",
+                #         json=config_data,
+                #         headers=headers,
+                #         timeout=5,
+                #     )
 
-                    if response.status_code == 200:
-                        device.ip_address = response.json().get("ip_address")
-                        device.status = True
-                        device.token = SecurityToken.objects.get(id=1)
-                        device.save()
+                #     if response.status_code == 200:
+                #         device.ip_address = response.json().get("ip_address")
+                #         device.status = True
+                #         device.token = SecurityToken.objects.get(id=1)
+                #         device.save()
 
-                        return redirect("attendance_app:devices")
-                else:
-                    form.add_error(
-                        None, "Could not connect to ESP32. Exception: {}".format(e)
-                    )
+                #         return redirect("attendance_app:devices")
+                # else:
+                #     form.add_error(
+                #         None, "Could not connect to Device. Exception: {}".format(e)
+                #     )
+                form.add_error(
+                    None, "Could not connect to Device. Exception: {}".format(e)
+                )
         else:
             print("Form is invalid:", form.errors)
     else:
@@ -420,25 +437,58 @@ def api_attendance(request):
         event_taken = data.get("event")
         barcode_enabled = barcode is not None and barcode != ""
 
+        # device = Device.objects.get(
+        #     name=device_name,
+        #     token__token=token1
+        # )
+
+        # barcode_enabled = device.barcode_enabled
+
         try:
             # get time to check if the attendance got on time
             current_time = timezone.localtime().time()
 
             if barcode_enabled:
+                print("BArcode shit")
                 student1 = Student.objects.get(student_id=str(barcode.strip()))
                 student_course = student1.course
-                event1 = [Event.objects.get(name=str(event_taken))]
+                print("Event taken:")
+                print(event_taken != "")
+                if event_taken!="":add_device = [Event.objects.get(name=str(event_taken))]
+                #try we maybe on an android device
+                else:
+                    print("Please work")
+                    token2 = SecurityToken.objects.get(token=token1)
+                    event1 = []
+                    print("Finding events")
+                    device1 = Device.objects.get(name=data.get("device"), token=token2)
+                    print(device1)
+                    print("devices")
+                    for event in Event.objects.all():
+                        print(event.name)
+                        # print(event.device.name)
+                        if event.device == device1:
+                            event1.append(event)
+                    
+                    print("Events found:")
+                    print(len(event1))
             else:
+                print("We are here")
                 if not token1:
                     return JsonResponse({"status": "Error", "message": "Token required for RFID scans"}, status=400)
                 student1 = Student.objects.get(card_uid=str(card_uid).upper())
                 student_course = student1.course
                 token2 = SecurityToken.objects.get(token=token1)
                 event1 = []
+                print("Finding events")
                 device1 = Device.objects.get(name=data.get("device"), token=token2)
+                print(device1)
                 for event in Event.objects.all():
                     if event.device == device1:
                         event1.append(event)
+                
+                print("Events found:")
+                print(len(event1))
 
             if len(event1) == 0:
                 return JsonResponse(
