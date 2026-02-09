@@ -326,7 +326,7 @@ def ping_device(request, device_id):
 
     try:
         response = requests.post(
-            f"http://{device.ip_address}/ping",
+            f"http://{device.ip_address}:8080/ping",
             headers=headers,
             json=config_data,
             timeout=5,
