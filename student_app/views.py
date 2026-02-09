@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from .models import Student, Course
+from .models import Student, Course, Year
 from .forms import UploadFileForm, StudentForm
 import openpyxl
 import requests
@@ -38,11 +38,12 @@ def upload_file(request):
             sheet = wb.active
 
             for row in sheet.iter_rows(min_row=2, values_only=True):
-                card_uid, last_name, first_name, middle_name, student_id, course = row
-                if course:
-                    course = Course.objects.get(name=str(course).upper())
+                card_uid, last_name, first_name, middle_name, student_id, course, year = row
+                
                 if None in row:
                     continue
+                course = Course.objects.get(name=str(course).upper())
+                year = Year.objects.get(year=str(year))
                 if card_uid.strip()=="":
                     card_uid = "None"
 
@@ -53,7 +54,7 @@ def upload_file(request):
                     not Student.objects.filter(student_id=str(student_id)).exists():
 
                     Student.objects.create(card_uid=str(card_uid).upper(), last_name=str(last_name).upper(),
-                                           first_name=str(first_name).upper(), middle_name=str(middle_name).upper(), student_id=student_id, course=course)
+                                           first_name=str(first_name).upper(), middle_name=str(middle_name).upper(), student_id=student_id, course=course, year=year)
 
             return redirect('student_app:students')
     else:
