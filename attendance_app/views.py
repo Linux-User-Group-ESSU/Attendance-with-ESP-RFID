@@ -317,6 +317,24 @@ def devices(request):
     )
 
 
+@csrf_exempt
+def ping(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            device_name = data.get("device_name")
+            print("device name",device_name)
+
+            if Device.objects.filter(name=device_name).exists():
+                return JsonResponse({"status": "valid"})
+            else:
+                return JsonResponse({"status": "invalid"}, status=403)
+
+        except Exception:
+            return JsonResponse({"error": "bad request"}, status=400)
+
+    return JsonResponse({"error": "method not allowed"}, status=405)
+
 def ping_device(request, device_id):
     device = Device.objects.get(id=device_id)
 
@@ -358,13 +376,16 @@ def add_device(request):
             }
 
             try:
+                print("Trying connecting")
                 headers = {"Content-Type": "application/json"}
+                print('sending')
                 response = requests.post(
                     f"http://{device.ip_address}:8080/config",
                     json=config_data,
                     headers=headers,
-                    timeout=5,
+                    timeout=10,
                 )
+                print("Hellooo")
                 print("Response code:",response.status_code)
                 if response.status_code == 200:
                     device.status = True
