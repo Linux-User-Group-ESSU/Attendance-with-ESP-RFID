@@ -8,12 +8,13 @@ class UploadFileForm(forms.Form):
 class StudentForm(forms.ModelForm):
     class Meta:
         model = Student
-        fields = ['last_name', 'middle_name', 'first_name', 'student_id','course']
+        fields = ['last_name', 'middle_name', 'first_name', 'student_id', 'course', 'year']
 
         labels = {
             'last_name': 'Last Name',
             'middle_name': 'Middle Name',
             'first_name': 'First Name',
             'student_id': 'Student ID',
-            'course': 'Course'
+            'course': 'Course',
+            'year': 'Year'
         }

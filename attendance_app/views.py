@@ -389,7 +389,11 @@ def add_device(request):
                 print("Response code:",response.status_code)
                 if response.status_code == 200:
                     device.status = True
-                    device.token = SecurityToken.objects.get(id=1)
+                    # device.token = SecurityToken.objects.get(id=1)
+                    for i in SecurityToken.objects.all():
+                        if i is not None:
+                            device.token = i
+                            break
                     device.save()
 
                     return redirect("attendance_app:devices")
@@ -450,6 +454,7 @@ def delete_day(request, event_id):
 
 @csrf_exempt
 def api_attendance(request):
+    print("request",request)
     if request.method == "POST":
         data = json.loads(request.body)
         card_uid = data.get("card_uid")
